@@ -12,7 +12,7 @@ Alternatively, use the official PHPBench 1.7.0 PHAR. The benchmark tool is isola
 
 ## Compare baseline and candidate
 
-On the benchmark branch, use the original `13.x` parser as the baseline:
+On a Unix-like system, use the original `13.x` parser as the baseline from the benchmark branch:
 
 ```sh
 php benchmarks/compare.php 13.x benchmarks/vendor/bin/phpbench 3

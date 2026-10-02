@@ -1,0 +1,19 @@
+{
+    "runner.bootstrap": "benchmarks/bootstrap.php",
+    "runner.path": [
+        "benchmarks/Validation/PersistentWorkerBench.php",
+        "benchmarks/Validation/NonPersistentWorkerBench.php"
+    ],
+    "runner.executor": "remote",
+    "runner.php_config": {
+        "opcache.enable_cli": "1",
+        "opcache.jit": "disable",
+        "opcache.jit_buffer_size": "0",
+        "xdebug.mode": "off",
+        "memory_limit": "512M",
+        "date.timezone": "UTC"
+    },
+    "runner.retry_threshold": null,
+    "runner.env_enabled_providers": ["php", "opcache"],
+    "runner.env_samplers": []
+}

@@ -1,0 +1,8 @@
+{
+    "name": "laravel/framework-benchmarks",
+    "description": "Development benchmarks for Laravel validation rule parsing.",
+    "license": "MIT",
+    "require": {
+        "phpbench/phpbench": "^1.7"
+    }
+}

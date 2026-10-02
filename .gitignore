@@ -11,3 +11,7 @@
 composer.phar
 composer.lock
 Thumbs.db
+/benchmarks/vendor
+/benchmarks/composer.lock
+/benchmarks/results
+/.phpbench

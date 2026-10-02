@@ -18,6 +18,11 @@ use Illuminate\Validation\Rules\Unique;
 
 class ValidationRuleParser
 {
+    private const CACHEABLE_CHARACTERS = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
+
+    /** @var array<array-key, array{0: string, 1: array<int, string|null>}> */
+    private static array $parsedStringRules = [];
+
     /**
      * The data being validated.
      *
@@ -258,6 +263,17 @@ class ValidationRuleParser
             return [$rule, []];
         }
 
+        $cacheable = is_string($rule)
+            && static::class === self::class
+            && strlen($rule) <= 256
+            && strspn($rule, self::CACHEABLE_CHARACTERS) === strlen($rule);
+        if ($cacheable) {
+            $key = $rule;
+            if (isset(self::$parsedStringRules[$key])) {
+                return self::$parsedStringRules[$key];
+            }
+        }
+
         if (is_array($rule)) {
             $rule = static::parseArrayRule($rule);
         } else {
@@ -265,6 +281,13 @@ class ValidationRuleParser
         }
 
         $rule[0] = static::normalizeRule($rule[0]);
+
+        if ($cacheable) {
+            if (count(self::$parsedStringRules) >= 256) {
+                self::$parsedStringRules = [];
+            }
+            self::$parsedStringRules[$key] = $rule;
+        }
 
         return $rule;
     }

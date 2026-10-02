@@ -6,9 +6,105 @@ use Illuminate\Support\Fluent;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationRuleParser;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
+use Stringable;
 
 class ValidationRuleParserTest extends TestCase
 {
+    public function testParsedRulesAreIndependentOfReturnedArrayMutations()
+    {
+        $parsed = ValidationRuleParser::parse('between:1,9');
+        $parsed[0] = 'Changed';
+        $parsed[1][0] = 'changed';
+
+        $this->assertSame(['Between', ['1', '9']], ValidationRuleParser::parse('between:1,9'));
+    }
+
+    public function testRepeatedParsingPreservesParametersAndAliases()
+    {
+        $rules = [
+            'int' => ['Integer', []],
+            'bool' => ['Boolean', []],
+            '0' => ['0', []],
+            '00' => ['00', []],
+            'min:1' => ['Min', ['1']],
+            'min:2' => ['Min', ['2']],
+            'in:"red,blue",green' => ['In', ['red,blue', 'green']],
+            'regex:/^(red|blue),green$/' => ['Regex', ['/^(red|blue),green$/']],
+            'not_regex:/^(red|blue)$/' => ['NotRegex', ['/^(red|blue)$/']],
+            'in:café,tea' => ['In', ['café', 'tea']],
+            'in:'.str_repeat('x', 300) => ['In', [str_repeat('x', 300)]],
+        ];
+
+        for ($i = 0; $i < 2; $i++) {
+            foreach ($rules as $rule => $expected) {
+                $this->assertSame($expected, ValidationRuleParser::parse((string) $rule));
+            }
+        }
+    }
+
+    public function testStringableRulesAreEvaluatedOnEveryParse()
+    {
+        $rule = new class implements Stringable
+        {
+            public int $minimum = 1;
+
+            public function __toString(): string
+            {
+                return 'min:'.$this->minimum;
+            }
+        };
+
+        $this->assertSame(['Min', ['1']], ValidationRuleParser::parse($rule));
+        $rule->minimum = 2;
+        $this->assertSame(['Min', ['2']], ValidationRuleParser::parse($rule));
+    }
+
+    public function testSubclassParsingIsEvaluatedOnEveryCall()
+    {
+        ValidationRuleParser::parse('min:1');
+
+        $parser = new class([]) extends ValidationRuleParser
+        {
+            public static int $calls = 0;
+
+            protected static function parseParameters($rule, $parameter)
+            {
+                return [++static::$calls];
+            }
+        };
+
+        $this->assertSame(['Min', [1]], $parser::parse('min:1'));
+        $this->assertSame(['Min', [2]], $parser::parse('min:1'));
+    }
+
+    public function testArrayRuleObjectsAreNotReusedAcrossCalls()
+    {
+        $first = new Fluent(['value' => 'first']);
+        $second = new Fluent(['value' => 'second']);
+
+        $this->assertSame(['In', [$first]], ValidationRuleParser::parse(['in', $first]));
+        $this->assertSame(['In', [$second]], ValidationRuleParser::parse(['in', $second]));
+    }
+
+    public function testParsedStringRuleCacheRemainsBounded()
+    {
+        $cache = new ReflectionProperty(ValidationRuleParser::class, 'parsedStringRules');
+        $previous = $cache->getValue();
+        $cache->setValue(null, []);
+
+        try {
+            for ($i = 0; $i < 600; $i++) {
+                $this->assertSame(['Min', [(string) $i]], ValidationRuleParser::parse('min:'.$i));
+                $this->assertLessThanOrEqual(256, count($cache->getValue()));
+            }
+
+            $this->assertSame(['Min', ['0']], ValidationRuleParser::parse('min:0'));
+        } finally {
+            $cache->setValue(null, $previous);
+        }
+    }
+
     public function testConditionalRulesAreProperlyExpandedAndFiltered()
     {
         $isAdmin = true;
